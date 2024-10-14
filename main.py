@@ -1,4 +1,35 @@
 import os
+from dotenv import find_dotenv, load_dotenv
+load_dotenv(find_dotenv())
+
+#### Azure Application Insights telemetry ####
+
+from azure.monitor.opentelemetry import configure_azure_monitor
+from opentelemetry import trace
+from opentelemetry.trace import (
+    SpanKind,
+    get_tracer_provider,
+    set_tracer_provider,
+)
+from opentelemetry.propagate import extract
+from logging import getLogger, INFO
+
+configure_azure_monitor(
+    connection_string=os.getenv("APPLICATIONINSIGHTS_CONNECTION_STRING")
+)
+
+tracer = trace.get_tracer(__name__, tracer_provider=get_tracer_provider())
+logger = getLogger(__name__)
+
+with tracer.start_as_current_span(
+        "main_request",
+        # context=context,
+        kind=SpanKind.SERVER
+    )as span:
+        span.set_attribute("custom_attr", "custom_value")
+        logger.info("Hello World endpoint was reached. . .")
+####
+
 import hashlib
 import aiofiles
 import aiofiles.os
@@ -8,7 +39,6 @@ from shutil import copyfileobj
 import uvicorn
 from langchain.schema import Document
 from contextlib import asynccontextmanager
-from dotenv import find_dotenv, load_dotenv
 from fastapi.middleware.cors import CORSMiddleware
 from langchain_core.runnables.config import run_in_executor
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -51,7 +81,6 @@ from mongo import mongo_health_check
 from constants import ERROR_MESSAGES
 from store import AsyncPgVector
 
-load_dotenv(find_dotenv())
 
 from config import (
     logger,
@@ -238,7 +267,8 @@ async def store_data_in_vector_db(
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=app.state.CHUNK_SIZE, chunk_overlap=app.state.CHUNK_OVERLAP
     )
-    documents = text_splitter.split_documents(data)
+    # documents = text_splitter.split_documents(data)
+    # documents.add(getFileMetada())
 
     # If `clean_content` is True, clean the page_content of each document (remove null bytes)
     if clean_content:
@@ -277,7 +307,6 @@ async def store_data_in_vector_db(
 def get_loader(filename: str, file_content_type: str, filepath: str):
     file_ext = filename.split(".")[-1].lower()
     known_type = True
-
     if file_ext == "pdf":
         loader = PyPDFLoader(filepath, extract_images=app.state.PDF_EXTRACT_IMAGES)
     elif file_ext == "csv":
