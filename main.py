@@ -1,5 +1,7 @@
 import os
 from dotenv import find_dotenv, load_dotenv
+from IntelequiaScripts.metadataEmbedding import getFileMetadata
+
 load_dotenv(find_dotenv())
 
 #### Azure Application Insights telemetry ####
@@ -258,17 +260,18 @@ def generate_digest(page_content: str):
     return hash_obj.hexdigest()
 
 
+
 async def store_data_in_vector_db(
     data: Iterable[Document],
     file_id: str,
     user_id: str = "",
     clean_content: bool = False,
 ) -> bool:
+
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=app.state.CHUNK_SIZE, chunk_overlap=app.state.CHUNK_OVERLAP
     )
-    # documents = text_splitter.split_documents(data)
-    # documents.add(getFileMetada())
+    documents = text_splitter.split_documents(data)
 
     # If `clean_content` is True, clean the page_content of each document (remove null bytes)
     if clean_content:
@@ -425,6 +428,11 @@ async def embed_file(
             file.filename, file.content_type, temp_file_path
         )
         data = loader.load()
+
+        # @Organization Intelequia
+        # @Author Enrique M. Pedroza Castillo
+        data = getFileMetadata(temp_file_path, data)
+
         result = await store_data_in_vector_db(
             data=data, file_id=file_id, user_id=user_id, clean_content=file_ext == "pdf"
         )

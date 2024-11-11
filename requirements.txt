@@ -37,3 +37,4 @@ xlrd==2.0.1
 azure-mgmt-applicationinsights==4.0.0
 azure-identity==1.18.0
 azure-monitor-opentelemetry==1.6.2
+pyexiftool==0.5.6
