@@ -1,11 +1,17 @@
 import os
+import json  
 from dotenv import find_dotenv, load_dotenv
-from IntelequiaScripts.metadataEmbedding import getFileMetadata
-
 load_dotenv(find_dotenv())
 
+#### Intelequia ####
+from IntelequiaScripts.metadataEmbedding import getFileMetadata
+from IntelequiaScripts.tokensCalculator import (
+    tokensCalculator, 
+    dataCalculator)
+####
 #### Azure Application Insights telemetry ####
 
+from azure.monitor.events.extension import track_event
 from azure.monitor.opentelemetry import configure_azure_monitor
 from opentelemetry import trace
 from opentelemetry.trace import (
@@ -14,22 +20,15 @@ from opentelemetry.trace import (
     set_tracer_provider,
 )
 from opentelemetry.propagate import extract
+
 from logging import getLogger, INFO
 
-configure_azure_monitor(
-    connection_string=os.getenv("APPLICATIONINSIGHTS_CONNECTION_STRING")
-)
+configure_azure_monitor( connection_string=os.getenv("APPLICATIONINSIGHTS_CONNECTION_STRING"))
+
 
 tracer = trace.get_tracer(__name__, tracer_provider=get_tracer_provider())
 logger = getLogger(__name__)
 
-with tracer.start_as_current_span(
-        "main_request",
-        # context=context,
-        kind=SpanKind.SERVER
-    )as span:
-        span.set_attribute("custom_attr", "custom_value")
-        logger.info("Hello World endpoint was reached. . .")
 ####
 
 import hashlib
@@ -405,8 +404,10 @@ async def embed_file(
     known_type = None
     if not hasattr(request.state, "user"):
         user_id = "public"
+        user_email = "public"
     else:
         user_id = request.state.user.get("id")
+        user_email = request.state.user.get("email")
 
     temp_base_path = os.path.join(RAG_UPLOAD_DIR, user_id)
     os.makedirs(temp_base_path, exist_ok=True)
@@ -429,9 +430,27 @@ async def embed_file(
         )
         data = loader.load()
 
+
+
         # @Organization Intelequia
         # @Author Enrique M. Pedroza Castillo
         data = getFileMetadata(temp_file_path, data)
+
+        # @Organization Intelequia
+        # @Author Enrique M. Pedroza Castillo
+        
+        dataTokens = tokensCalculator(data)
+        contentLength = dataCalculator(data)
+
+        track_event("RAG Embedding", {
+                "file_id": file_id,
+                "user_email": user_email,
+                "file_name": file.filename,
+                "file_ext": file_ext,
+                "known_type": known_type,
+                "data_tokens": str(dataTokens), 
+                "content_length": str(contentLength)
+            })
 
         result = await store_data_in_vector_db(
             data=data, file_id=file_id, user_id=user_id, clean_content=file_ext == "pdf"
