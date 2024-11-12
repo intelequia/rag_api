@@ -9,6 +9,7 @@ RUN apt-get update \
     netcat-openbsd \
     libgl1-mesa-glx \  
     libglib2.0-0 \
+    libimage-exiftool-perl \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
