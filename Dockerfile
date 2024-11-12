@@ -10,6 +10,7 @@ RUN apt-get update \
     libgl1-mesa-glx \  
     libglib2.0-0 \
     libimage-exiftool-perl \
+    exiftool \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
