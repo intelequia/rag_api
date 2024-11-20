@@ -1,35 +1,6 @@
 import os
-import json  
 from dotenv import find_dotenv, load_dotenv
 load_dotenv(find_dotenv())
-
-#### Intelequia ####
-from IntelequiaScripts.metadataEmbedding import getFileMetadata
-from IntelequiaScripts.tokensCalculator import (
-    tokensCalculator, 
-    dataCalculator)
-####
-#### Azure Application Insights telemetry ####
-
-from azure.monitor.events.extension import track_event
-from azure.monitor.opentelemetry import configure_azure_monitor
-from opentelemetry import trace
-from opentelemetry.trace import (
-    SpanKind,
-    get_tracer_provider,
-    set_tracer_provider,
-)
-from opentelemetry.propagate import extract
-
-from logging import getLogger, INFO
-
-configure_azure_monitor( connection_string=os.getenv("APPLICATIONINSIGHTS_CONNECTION_STRING"))
-
-
-tracer = trace.get_tracer(__name__, tracer_provider=get_tracer_provider())
-logger = getLogger(__name__)
-
-####
 
 import hashlib
 import aiofiles
@@ -101,6 +72,47 @@ from config import (
     # RAG_TEMPLATE,
     VECTOR_DB_TYPE,
 )
+
+
+
+
+import json  
+#### Intelequia ####
+from IntelequiaScripts.metadataEmbedding import getFileMetadata
+from IntelequiaScripts.tokensCalculator import (
+    tokensCalculator, 
+    dataCalculator)
+####
+#### Azure Application Insights telemetry ####
+
+from azure.monitor.events.extension import track_event
+from azure.monitor.opentelemetry import configure_azure_monitor
+from opentelemetry import trace
+from opentelemetry.trace import (
+    SpanKind,
+    get_tracer_provider,
+    set_tracer_provider,
+)
+from opentelemetry.propagate import extract
+
+# import logging
+# from logging import getLogger, INFO
+
+configure_azure_monitor( connection_string=os.getenv("APPLICATIONINSIGHTS_CONNECTION_STRING"))
+
+
+# # Configurar el registrador específico de azure.core.pipeline.policies.http_logging_policy
+# http_logging_logger = logging.getLogger('azure.core.pipeline.policies.http_logging_policy')
+# http_logging_logger.setLevel(logging.WARNING)  # Para deshabilitar los logs de INFO y mostrar solo WARNING y superiores
+
+# # Configurar logging para azure.monitor también si es necesario
+# monitor_exporter_logger = logging.getLogger('azure.monitor.opentelemetry.exporter.export._base')
+# monitor_exporter_logger.setLevel(logging.WARNING)
+
+# tracer = trace.get_tracer(__name__, tracer_provider=get_tracer_provider())
+# logger = logging.getLogger(__name__)
+
+####
 
 
 @asynccontextmanager
@@ -447,7 +459,7 @@ async def embed_file(
                 "user_email": user_email,
                 "file_name": file.filename,
                 "file_ext": file_ext,
-                "known_type": known_type,
+                "known_type": str(known_type),
                 "data_tokens": str(dataTokens), 
                 "content_length": str(contentLength)
             })
