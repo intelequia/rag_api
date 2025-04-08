@@ -457,13 +457,11 @@ async def embed_file(
         contentLength = dataCalculator(data)
 
         track_event("RAG Embedding", {
-                "file_id": file_id,
-                "user_email": user_email,
-                "file_name": file.filename,
-                "file_ext": file_ext,
-                "known_type": str(known_type),
-                "data_tokens": str(dataTokens), 
-                "content_length": str(contentLength),
+                "userEmail": user_email,
+                "fileName": file.filename,
+                "fileExtension": file_ext,
+                "dataTokens": str(dataTokens), 
+                "contentLength": str(contentLength),
                 "model": embeddingsModel
             })
 
