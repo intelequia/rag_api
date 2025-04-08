@@ -74,8 +74,6 @@ from config import (
 )
 
 
-
-
 import json  
 #### Intelequia ####
 from IntelequiaScripts.metadataEmbedding import getFileMetadata
