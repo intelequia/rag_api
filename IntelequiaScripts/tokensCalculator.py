@@ -1,9 +1,9 @@
 import tiktoken
 
-def tokensCalculator(data):
+def tokensCalculator(data, embeddingModel):
 
   totalTokens = 0
-  encoding = tiktoken.encoding_for_model("text-embedding-3-large")
+  encoding = tiktoken.encoding_for_model(embeddingModel)
 
   for document in data:
     text = document.page_content

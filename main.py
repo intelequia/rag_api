@@ -441,6 +441,10 @@ async def embed_file(
         data = loader.load()
 
 
+        
+        # @Organization Intelequia
+        # @Author Enrique M. Pedroza Castillo
+        embeddingsModel = os.getenv("EMBEDDINGS_MODEL")
 
         # @Organization Intelequia
         # @Author Enrique M. Pedroza Castillo
@@ -449,7 +453,7 @@ async def embed_file(
         # @Organization Intelequia
         # @Author Enrique M. Pedroza Castillo
         
-        dataTokens = tokensCalculator(data)
+        dataTokens = tokensCalculator(data,embeddingsModel)
         contentLength = dataCalculator(data)
 
         track_event("RAG Embedding", {
@@ -459,7 +463,8 @@ async def embed_file(
                 "file_ext": file_ext,
                 "known_type": str(known_type),
                 "data_tokens": str(dataTokens), 
-                "content_length": str(contentLength)
+                "content_length": str(contentLength),
+                "model": embeddingsModel
             })
 
         result = await store_data_in_vector_db(
