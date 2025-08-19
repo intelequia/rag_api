@@ -1,4 +1,14 @@
 # app/routes/document_routes.py
+from azure.monitor.events.extension import track_event
+#### Intelequia ####
+from IntelequiaScripts.metadataEmbedding import getFileMetadata
+from IntelequiaScripts.tokensCalculator import (
+    tokensCalculator, 
+    dataCalculator)
+####
+
+
+
 import os
 import hashlib
 import traceback
@@ -383,8 +393,10 @@ async def embed_file(
     known_type = None
     if not hasattr(request.state, "user"):
         user_id = entity_id if entity_id else "public"
+        user_email = "public"        
     else:
         user_id = entity_id if entity_id else request.state.user.get("id")
+        user_email = request.state.user.get("email")        
 
     temp_base_path = os.path.join(RAG_UPLOAD_DIR, user_id)
     os.makedirs(temp_base_path, exist_ok=True)
@@ -415,6 +427,23 @@ async def embed_file(
 
         # Clean up temporary UTF-8 file if it was created for encoding conversion
         cleanup_temp_encoding_file(loader)
+
+        # @Organization Intelequia
+        # @Author David Rodriguez
+        embeddingsModel = os.getenv("EMBEDDINGS_MODEL")
+        data = getFileMetadata(temp_file_path, data)
+        
+        dataTokens = tokensCalculator(data,embeddingsModel)
+        contentLength = dataCalculator(data)
+
+        track_event("RAG Embedding", {
+                "userEmail": user_email,
+                "fileName": file.filename,
+                "fileExtension": file_ext,
+                "dataTokens": str(dataTokens), 
+                "contentLength": str(contentLength),
+                "model": embeddingsModel
+            })        
 
         result = await store_data_in_vector_db(
             data=data,
