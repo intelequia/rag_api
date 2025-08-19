@@ -1,3 +1,4 @@
+# app/models.py
 import hashlib
 from enum import Enum
 from pydantic import BaseModel
@@ -26,9 +27,10 @@ class StoreDocument(BaseModel):
 
 
 class QueryRequestBody(BaseModel):
-    file_id: str
     query: str
+    file_id: str
     k: int = 4
+    entity_id: Optional[str] = None
 
 
 class CleanupMethod(str, Enum):
