@@ -5,6 +5,12 @@ import tempfile
 
 from typing import List, Optional
 
+try:
+    import chardet
+    HAS_CHARDET = True
+except ImportError:
+    HAS_CHARDET = False
+
 from langchain_core.documents import Document
 
 from app.config import known_source_ext, PDF_EXTRACT_IMAGES, CHUNK_OVERLAP, logger
@@ -24,13 +30,17 @@ from langchain_community.document_loaders import (
 
 def detect_file_encoding(filepath: str) -> str:
     """
-    Detect the encoding of a file by checking for BOM markers.
+    Detect the encoding of a file by checking for BOM markers first,
+    then using chardet library if available, or attempting to decode with common encodings.
     Returns the detected encoding or 'utf-8' as default.
     """
     with open(filepath, "rb") as f:
         raw = f.read(4)
+        # Read more content for better encoding detection
+        f.seek(0)
+        sample = f.read(8192)  # Read first 8KB for encoding detection
 
-    # Check for BOM markers
+    # Check for BOM markers first
     if raw.startswith(codecs.BOM_UTF16_LE):
         return "utf-16-le"
     elif raw.startswith(codecs.BOM_UTF16_BE):
@@ -43,9 +53,65 @@ def detect_file_encoding(filepath: str) -> str:
         return "utf-32-le"
     elif raw.startswith(codecs.BOM_UTF32_BE):
         return "utf-32-be"
-    else:
-        # Default to utf-8 if no BOM is found
-        return "utf-8"
+    
+    # If chardet is available, use it for better encoding detection
+    if HAS_CHARDET:
+        try:
+            detection = chardet.detect(sample)
+            if detection and detection['encoding']:
+                confidence = detection.get('confidence', 0)
+                detected_encoding = detection['encoding'].lower()
+                
+                # Only trust chardet if confidence is reasonable
+                if confidence >= 0.7:
+                    # Normalize some common encoding names
+                    if detected_encoding in ['iso-8859-1', 'latin-1']:
+                        return 'iso-8859-1'
+                    elif detected_encoding in ['windows-1252', 'cp1252']:
+                        return 'cp1252'
+                    elif detected_encoding.startswith('utf-8'):
+                        return 'utf-8'
+                    else:
+                        return detected_encoding
+                # If confidence is low, fall back to manual detection
+        except Exception as e:
+            logger.warning(f"Chardet encoding detection failed: {e}")
+    
+    # If no BOM found and chardet not available/failed, try to detect encoding by attempting to decode
+    # Order matters: try single-byte encodings first, then common single-byte encodings
+    encodings_to_try = ['iso-8859-1', 'latin-1', 'cp1252', 'ascii', 'utf-8']
+    
+    for encoding in encodings_to_try:
+        try:
+            sample.decode(encoding)
+            # If we can decode without errors, this might be the right encoding
+            # For UTF-8, we're more strict - check if it's actually valid UTF-8
+            if encoding == 'utf-8':
+                # Try to decode the entire sample as UTF-8
+                # If it contains non-UTF-8 sequences, this will fail
+                try:
+                    sample.decode('utf-8', errors='strict')
+                    return 'utf-8'
+                except UnicodeDecodeError:
+                    # Not valid UTF-8, continue to next encoding
+                    continue
+            else:
+                # For other encodings, if decode succeeds, use it
+                # But first check if the content looks like it could be UTF-8
+                try:
+                    # Try UTF-8 with strict error handling
+                    sample.decode('utf-8', errors='strict')
+                    # If UTF-8 decoding succeeds, prefer UTF-8
+                    return 'utf-8'
+                except UnicodeDecodeError:
+                    # UTF-8 failed, so use the current encoding
+                    return encoding
+        except (UnicodeDecodeError, UnicodeError):
+            # This encoding failed, try the next one
+            continue
+    
+    # If all encodings failed, default to utf-8
+    return "utf-8"
 
 
 def cleanup_temp_encoding_file(loader) -> None:

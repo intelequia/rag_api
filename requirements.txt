@@ -42,3 +42,4 @@ azure-monitor-opentelemetry==1.6.4
 pyexiftool==0.5.6
 tiktoken==0.8.0
 azure-monitor-events-extension==0.1.0
+chardet==5.2.0
