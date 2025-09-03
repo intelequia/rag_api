@@ -1,15 +1,11 @@
 # app/utils/document_loader.py
+
 import os
 import codecs
 import tempfile
 
 from typing import List, Optional
-
-try:
-    import chardet
-    HAS_CHARDET = True
-except ImportError:
-    HAS_CHARDET = False
+import chardet
 
 from langchain_core.documents import Document
 
@@ -55,27 +51,26 @@ def detect_file_encoding(filepath: str) -> str:
         return "utf-32-be"
     
     # If chardet is available, use it for better encoding detection
-    if HAS_CHARDET:
-        try:
-            detection = chardet.detect(sample)
-            if detection and detection['encoding']:
-                confidence = detection.get('confidence', 0)
-                detected_encoding = detection['encoding'].lower()
-                
-                # Only trust chardet if confidence is reasonable
-                if confidence >= 0.7:
-                    # Normalize some common encoding names
-                    if detected_encoding in ['iso-8859-1', 'latin-1']:
-                        return 'iso-8859-1'
-                    elif detected_encoding in ['windows-1252', 'cp1252']:
-                        return 'cp1252'
-                    elif detected_encoding.startswith('utf-8'):
-                        return 'utf-8'
-                    else:
-                        return detected_encoding
-                # If confidence is low, fall back to manual detection
-        except Exception as e:
-            logger.warning(f"Chardet encoding detection failed: {e}")
+    try:
+        detection = chardet.detect(sample)
+        if detection and detection['encoding']:
+            confidence = detection.get('confidence', 0)
+            detected_encoding = detection['encoding'].lower()
+            
+            # Only trust chardet if confidence is reasonable
+            if confidence >= 0.7:
+                # Normalize some common encoding names
+                if detected_encoding in ['iso-8859-1', 'latin-1']:
+                    return 'iso-8859-1'
+                elif detected_encoding in ['windows-1252', 'cp1252']:
+                    return 'cp1252'
+                elif detected_encoding.startswith('utf-8'):
+                    return 'utf-8'
+                else:
+                    return detected_encoding
+            # If confidence is low, fall back to manual detection
+    except Exception as e:
+        logger.warning(f"Chardet encoding detection failed: {e}")
     
     # If no BOM found and chardet not available/failed, try to detect encoding by attempting to decode
     # Order matters: try single-byte encodings first, then common single-byte encodings
@@ -120,7 +115,7 @@ def cleanup_temp_encoding_file(loader) -> None:
 
     :param loader: The document loader that may have created a temporary file
     """
-    if hasattr(loader, "_temp_filepath"):
+    if hasattr(loader, "_temp_filepath") and loader._temp_filepath is not None:
         try:
             os.remove(loader._temp_filepath)
         except Exception as e:
@@ -149,7 +144,9 @@ def get_loader(filename: str, file_content_type: str, filepath: str):
                     mode="w", encoding="utf-8", suffix=".csv", delete=False
                 ) as temp_file:
                     # Read the original file with detected encoding
-                    with open(filepath, "r", encoding=encoding) as original_file:
+                    with open(
+                        filepath, "r", encoding=encoding, errors="replace"
+                    ) as original_file:
                         content = original_file.read()
                         temp_file.write(content)
 
@@ -170,40 +167,40 @@ def get_loader(filename: str, file_content_type: str, filepath: str):
     elif file_ext == "rst":
         loader = UnstructuredRSTLoader(filepath, mode="elements")
     elif file_ext == "xml" or file_content_type in [
-            "application/xml",
-            "text/xml",
-            "application/xhtml+xml",
-        ]:
+        "application/xml",
+        "text/xml",
+        "application/xhtml+xml",
+    ]:
         loader = UnstructuredXMLLoader(filepath)
     elif file_ext in ["ppt", "pptx"] or file_content_type in [
-            "application/vnd.ms-powerpoint",
-            "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-        ]:
+        "application/vnd.ms-powerpoint",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    ]:
         loader = UnstructuredPowerPointLoader(filepath)
     elif file_ext == "md" or file_content_type in [
-            "text/markdown",
-            "text/x-markdown",
-            "application/markdown",
-            "application/x-markdown",
-        ]:
+        "text/markdown",
+        "text/x-markdown",
+        "application/markdown",
+        "application/x-markdown",
+    ]:
         loader = UnstructuredMarkdownLoader(filepath)
     elif file_ext == "epub" or file_content_type == "application/epub+zip":
         loader = UnstructuredEPubLoader(filepath)
     elif file_ext in ["doc", "docx"] or file_content_type in [
-            "application/msword",
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        ]:
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ]:
         loader = Docx2txtLoader(filepath)
     elif file_ext in ["xls", "xlsx"] or file_content_type in [
-            "application/vnd.ms-excel",
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        ]:
+        "application/vnd.ms-excel",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ]:
         loader = UnstructuredExcelLoader(filepath)
     elif file_ext == "json" or file_content_type == "application/json":
         loader = TextLoader(filepath, autodetect_encoding=True)
     elif file_ext in known_source_ext or (
-            file_content_type and file_content_type.find("text/") >= 0
-        ):
+        file_content_type and file_content_type.find("text/") >= 0
+    ):
         loader = TextLoader(filepath, autodetect_encoding=True)
     else:
         loader = TextLoader(filepath, autodetect_encoding=True)
@@ -214,12 +211,37 @@ def get_loader(filename: str, file_content_type: str, filepath: str):
 
 def clean_text(text: str) -> str:
     """
+    Clean up text from PDF lopader
+
+    :param text: The original text
+    :return: Cleaned text
+    """
+    text = remove_null(text)
+    text = remove_non_utf8(text)
+    return text
+
+
+def remove_null(text: str) -> str:
+    """
     Remove NUL (0x00) characters from a string.
 
     :param text: The original text with potential NUL characters.
     :return: Cleaned text without NUL characters.
     """
     return text.replace("\x00", "")
+
+
+def remove_non_utf8(text: str) -> str:
+    """
+    Remove invalid UTF-8 characters from a string, such as surrogate characters
+
+    :param text: The original text with potential invalid utf-8 characters
+    :return: Cleaned text without invalid utf-8 characters.
+    """
+    try:
+        return text.encode("utf-8", "ignore").decode("utf-8")
+    except UnicodeError:
+        return text
 
 
 def process_documents(documents: List[Document]) -> str:
