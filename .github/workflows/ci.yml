@@ -35,6 +35,7 @@ jobs:
       - name: Run tests and generate report
         env:
           OPENAI_API_KEY: test_key
+          APPLICATIONINSIGHTS_CONNECTION_STRING: ${{ secrets.APPLICATIONINSIGHTS_CONNECTION_STRING }}
         run: |
           pytest --maxfail=1 --disable-warnings --junitxml=test-results.xml
 
