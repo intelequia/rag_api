@@ -35,7 +35,7 @@ jobs:
       - name: Run tests and generate report
         env:
           OPENAI_API_KEY: test_key
-          APPLICATIONINSIGHTS_CONNECTION_STRING: ${{ secrets.APPLICATIONINSIGHTS_CONNECTION_STRING }}
+          APPLICATIONINSIGHTS_CONNECTION_STRING: InstrumentationKey=00000000-0000-0000-0000-000000000000;IngestionEndpoint=https://southcentralus.in.applicationinsights.azure.com/
         run: |
           pytest --maxfail=1 --disable-warnings --junitxml=test-results.xml
 
