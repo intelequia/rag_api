@@ -501,22 +501,9 @@ async def embed_file(
             file.filename,
             file.content_type,
             temp_file_path,
-            str(e),
-            traceback.format_exc(),
+            temp_file_path,
+            request.app.state.thread_pool,
         )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to save the uploaded file. Error: {str(e)}",
-        )
-
-    try:
-        loader, known_type, file_ext = get_loader(
-            file.filename, file.content_type, temp_file_path
-        )
-        data = await run_in_executor(request.app.state.thread_pool, loader.load)
-
-        # Clean up temporary UTF-8 file if it was created for encoding conversion
-        cleanup_temp_encoding_file(loader)
 
         # @Organization Intelequia
         # @Author David Rodriguez
