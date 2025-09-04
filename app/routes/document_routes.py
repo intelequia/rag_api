@@ -501,7 +501,6 @@ async def embed_file(
             file.filename,
             file.content_type,
             temp_file_path,
-            temp_file_path,
             request.app.state.thread_pool,
         )
 
