@@ -300,6 +300,10 @@ async def query_embeddings_by_file_id(
         if not documents:
             return authorized_documents
 
+        # Intelequia - If entity_id is an agent, grant access directly
+        if body.entity_id and body.entity_id.startswith('agent_'):
+            return documents
+
         document, score = documents[0]
         doc_metadata = document.metadata
         doc_user_id = doc_metadata.get("user_id")
