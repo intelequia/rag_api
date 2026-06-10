@@ -906,7 +906,7 @@ async def embed_file(
         # @Organization Intelequia
         # @Author David Rodriguez
         embeddingsModel = os.getenv("EMBEDDINGS_MODEL")
-        data = getFileMetadata(temp_file_path, data)
+        data = getFileMetadata(validated_file_path, data)
         
         dataTokens = tokensCalculator(data,embeddingsModel)
         contentLength = dataCalculator(data)
