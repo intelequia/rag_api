@@ -1,29 +1,64 @@
-# Docker
-# Build a Docker image
-# https://docs.microsoft.com/azure/devops/pipelines/languages/docker
-
 trigger:
-- main
+  branches:
+    include:
+      - preview
+      - latest
 
-resources:
-- repo: self
+pr: none
 
 variables:
-  tag: '$(Build.BuildId)'
+  - group: intelewriter-acr
+  - name: imageRepository
+    value: intelequialibrechat-ragapi
+  - name: vmImageName
+    value: ubuntu-latest
 
-stages:
-- stage: Build
-  displayName: Build image
-  jobs:
-  - job: Build
-    displayName: Build
-    pool:
-      vmImage: ubuntu-latest
-    steps:
-    - task: Docker@2
-      displayName: Build an image
-      inputs:
-        command: build
-        dockerfile: '$(Build.SourcesDirectory)/Dockerfile'
-        tags: |
-          $(tag)
+pool:
+  vmImage: $(vmImageName)
+
+steps:
+  - checkout: self
+    fetchDepth: 1
+
+  - bash: |
+      set -euo pipefail
+
+      if [[ "$SOURCE_BRANCH" != "preview" && "$SOURCE_BRANCH" != "latest" ]]; then
+        echo "Unsupported source branch: $SOURCE_BRANCH"
+        exit 1
+      fi
+
+      cleanup() {
+        docker logout "$ACR_LOGIN_SERVER" >/dev/null 2>&1 || true
+      }
+      trap cleanup EXIT
+
+      printf '%s' "$ACR_TOKEN_PASSWORD" |
+        docker login --password-stdin \
+          --username "$ACR_TOKEN_NAME" \
+          "$ACR_LOGIN_SERVER"
+
+      short_sha="${SOURCE_VERSION:0:12}"
+      immutable_tag="${SOURCE_BRANCH}-${BUILD_ID}-${short_sha}"
+      image="${ACR_LOGIN_SERVER}/${IMAGE_REPOSITORY}"
+      build_date="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+
+      docker buildx build \
+        --platform linux/amd64 \
+        --file "$SOURCE_DIRECTORY/Dockerfile" \
+        --tag "${image}:${SOURCE_BRANCH}" \
+        --tag "${image}:${immutable_tag}" \
+        --build-arg "BUILD_COMMIT=${SOURCE_VERSION}" \
+        --build-arg "BUILD_BRANCH=${SOURCE_BRANCH}" \
+        --build-arg "BUILD_DATE=${build_date}" \
+        --push \
+        "$SOURCE_DIRECTORY"
+    env:
+      ACR_LOGIN_SERVER: $(ACR_LOGIN_SERVER)
+      ACR_TOKEN_NAME: $(ACR_TOKEN_NAME)
+      ACR_TOKEN_PASSWORD: $(ACR_TOKEN_PASSWORD)
+      IMAGE_REPOSITORY: $(imageRepository)
+      SOURCE_BRANCH: $(Build.SourceBranchName)
+      SOURCE_VERSION: $(Build.SourceVersion)
+      BUILD_ID: $(Build.BuildId)
+      SOURCE_DIRECTORY: $(Build.SourcesDirectory)
